@@ -47,15 +47,18 @@ int main(int argc, char** argv) {
 	for(;;) {
 		bool a, g, m;
 		if((a = read_accel())) {
-			write_log(a_log);
+			if(!a_log->overflow)
+				write_log(a_log);
 			adjust_accel();
 		}
 		if((g = read_gyro())) {
-			write_log(g_log);
+			if(!g_log->overflow)
+				write_log(g_log);
 			adjust_gyro();
 		}
 		if((m = read_mag())) {
-			write_log(m_log);
+			if(!m_log->overflow)
+				write_log(m_log);
 			adjust_mag();
 		}
 		if(!a && !g && !m)
@@ -148,33 +151,19 @@ static void write_log_ascii(struct eit_log_t* log) {
 }
 
 #define B_SENSOR 0
-#define B_SCALE (B_SENSOR + sizeof(char))
-#define B_TS (B_SCALE + sizeof(char))
+#define B_TS (B_SENSOR + sizeof(char))
 #define B_X (B_TS + sizeof(int64_t))
 #define B_Y (B_X + sizeof(float))
 #define B_Z (B_Y + sizeof(float))
-#define B_OVR (B_Z + sizeof(float))
-#define B_LEN (B_OVR + sizeof(char))
+#define B_LEN (B_Z + sizeof(float))
 
 static void write_log_binary(struct eit_log_t* log) {
 	char cbuf[B_LEN];
 	*(cbuf + B_SENSOR) = log->sensor;
-	switch(log->sensor) {
-	case S_ACCEL:
-		*(cbuf + B_SCALE) = log->config.accel.scale;
-		break;
-	case S_GYRO:
-		*(cbuf + B_SCALE) = log->config.gyro.scale;
-		break;
-	case S_MAG:
-		*(cbuf + B_SCALE) = log->config.mag.scale;
-		break;
-	}
 	*((int64_t*)(cbuf + B_TS)) = log->timestamp_ns;
 	*((float*)(cbuf + B_X)) = log->x;
 	*((float*)(cbuf + B_Y)) = log->y;
 	*((float*)(cbuf + B_Z)) = log->z;
-	*(cbuf + B_OVR) = log->overflow;
 	std::cout.write(cbuf, sizeof(cbuf));
 }
 
