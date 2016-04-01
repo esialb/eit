@@ -1,6 +1,10 @@
 package com.robinkirkman.eit.processor;
 
+import static java.lang.StrictMath.*;
+
 public class XYZ {
+	public String prefix = "";
+	
 	public double x;
 	public double y;
 	public double z;
@@ -42,6 +46,15 @@ public class XYZ {
 		return distance(0, 0, 0);
 	}
 	
+	public XYZ extend(double d) {
+		double m = magnitude();
+		if(m > 0) {
+			m += d;
+			normalize().multiply(m);
+		}
+		return this;
+	}
+	
 	public XYZ normalize() {
 		return multiply(1 / magnitude());
 	}
@@ -66,62 +79,39 @@ public class XYZ {
 	
 	/**
 	 * rotate around all three axes
-	 * @param rx radians
-	 * @param ry radians
-	 * @param rz radians
+	 * @param rx degrees
+	 * @param ry degrees
+	 * @param rz degrees
 	 * @return
 	 */
 	public XYZ rotateXYZ(double rx, double ry, double rz) {
-		XYZ rvx = new XYZ(this).rotateX(rx);
-		XYZ rvy = new XYZ(this).rotateY(ry);
-		XYZ rvz = new XYZ(this).rotateZ(rz);
-		XYZ sum = new XYZ().offset(rvx).offset(rvy).offset(rvz);
-		return this.set(sum.normalize().multiply(this.magnitude()));
+		rx *= Constants.DEGREES_TO_RADIANS;
+		ry *= Constants.DEGREES_TO_RADIANS;
+		rz *= Constants.DEGREES_TO_RADIANS;
+		double c1 = cos(rx), s1 = sin(rx);
+		double c2 = cos(ry), s2 = sin(ry);
+		double c3 = cos(rz), s3 = sin(rz);
+		double xp = x*c2*c3 + y*(-c2*s3) + z*s2;
+		double yp = x*(c1*s3+c3*s1*s2) + y*(c1*c3-s1*s2*s3) + z*(-c2*s1);
+		double zp = x*(s1*s3-c1*c3*s2) + y*(c3*s1+c1*s2*s3) + z*(c1*c2);
+		x = xp;
+		y = yp;
+		z = zp;
+		return this;
 	}
 	
 	/**
 	 * rotate around all three axes
-	 * @param r radians
+	 * @param r degrees
 	 * @return
 	 */
 	public XYZ rotateXYZ(XYZ r) {
 		return rotateXYZ(r.x, r.y, r.z);
 	}
 	
-	/**
-	 * rotate around the x axis
-	 * @param r radians
-	 */
-	public XYZ rotateX(double r) {
-		double yp = y * StrictMath.cos(r) - z * StrictMath.sin(r);
-		double zp = y * StrictMath.sin(r) + z * StrictMath.cos(r);
-		y = yp;
-		z = zp;
-		return this;
-	}
-	
-	/**
-	 * rotate around the y axis
-	 * @param r radians
-	 */
-	public XYZ rotateY(double r) {
-		double xp = x * StrictMath.cos(r) + z * StrictMath.sin(r);
-		double zp = -x * StrictMath.sin(r) + z * StrictMath.cos(r);
-		x = xp;
-		z = zp;
-		return this;
-	}
-	
-	/**
-	 * rotate around the z axis
-	 * @param r radians
-	 */
-	public XYZ rotateZ(double r) {
-		double xp = x * StrictMath.cos(r) - y * StrictMath.sin(r);
-		double yp = x * StrictMath.sin(r) + y * StrictMath.cos(r);
-		x = xp;
-		y = yp;
-		return this;
+	@Override
+	public String toString() {
+		return "(" + prefix + x + ", " + y + ", " + z + ", ||=" + magnitude() + ")";
 	}
 }
 

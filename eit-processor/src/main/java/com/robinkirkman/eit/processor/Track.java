@@ -1,63 +1,58 @@
 package com.robinkirkman.eit.processor;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
+import java.util.concurrent.TimeUnit;
+
 import com.robinkirkman.eit.processor.EitLog.Sensor;
 
 public class Track {
-	public Calibration cal;
-	
-	public long accelcount;
-	public long accelns;
-	public XYZ accel;
-	public XYZ vel;
-	public XYZ pos;
-	
-	public long gyrocount;
-	public long gyrons;
-	public XYZ gyro;
-	public XYZ turn;
-	
-	public Track(Calibration cal) {
-		this.cal = cal;
+
+	public static void main(String[] args) throws Exception {
+		Calibration cal = Calibrate.calibrate(new File(args[0]));
 		
-		accel = new XYZ();
-		vel = new XYZ();
-		pos = new XYZ();
+		File f = new File(args[1]);
 		
-		gyro = new XYZ();
-		turn = new XYZ();
-		
-		accelcount = 0;
-		gyrocount = 0;
-		
-		accelns = 0;
-		gyrons = 0;
+		track(cal, f);
 	}
 	
-	public Track log(EitLog log) {
-		if(log.sensor == Sensor.ACCEL)
-			logAccel(log.x, log.y, log.z, log.nanos);
-		else if(log.sensor == Sensor.GYRO)
-			logGyro(log.x, log.y, log.z, log.nanos);
-		return this;
+	public static InertialState track(Calibration cal, File f) throws IOException {
+		FileInputStream fin = new FileInputStream(f);
+		FileChannel fc = fin.getChannel();
+		MappedByteBuffer buf = fc.map(MapMode.READ_ONLY, 0, f.length());
+		buf.order(ByteOrder.LITTLE_ENDIAN);
+		fin.close();
+		
+		EitLog elog = new EitLog();
+		
+		InertialState istate = new InertialState(cal);
+		
+		long prevs = -1;
+		
+		while(EitLog.canRead(buf)) {
+			elog.read(buf);
+
+			if(elog.nanos < 1000000000L)
+				continue;
+			
+			istate.log(elog);
+			
+			double ms = elog.nanos / 1000000.;
+			ms = Math.round(ms);
+			double s = ms / 1000.;
+			
+			if(prevs != (long) s)
+				System.out.println(String.format("%03.3f %s %s %s", s, istate.pos, istate.vel, istate.accel));
+			prevs = (long) s;
+			
+		}
+		
+		return istate;
 	}
-	
-	public Track logAccel(double ax, double ay, double az, long ans) {
-		double as = (ans - accelns) / 1000000000.;
-		pos.offset(vel.x * as, vel.y * as, vel.z * as);
-		vel.offset(accel.x * as, accel.y * as, accel.z * as);
-		accel.set(ax, ay, az).rotateXYZ(-turn.x, -turn.y, -turn.z).offset(cal.ao).multiply(Constants.GRAVITIES_TO_MPS2);
-		accelns = ans;
-		accelcount++;
-		return this;
-	}
-	
-	public Track logGyro(double gx, double gy, double gz, long gns) {
-		double gs = (gns - gyrons) / 1000000000.;
-		turn.offset(gyro.x * gs, gyro.y * gs, gyro.z * gs);
-		gyro.set(gx, gy, gz).offset(cal.go).multiply(Constants.DEGREES_TO_RADIANS);
-		gyrons = gns;
-		gyrocount++;
-		return this;
-	}
-	
+
 }

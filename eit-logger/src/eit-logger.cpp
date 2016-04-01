@@ -28,6 +28,7 @@ namespace po = boost::program_options;
 static LSM9DS0 *imu;
 
 static bool ascii_output = false;
+static bool include_mag = false;
 
 static struct eit_log_t *a_log;
 static struct eit_log_t *g_log;
@@ -64,12 +65,14 @@ int main(int argc, char** argv) {
 			adjust_gyro();
 		}
 		if((m = read_mag())) {
-			if(!m_log->overflow)
-				write_log(m_log);
-			adjust_mag();
+			if(include_mag) {
+				if(!m_log->overflow)
+					write_log(m_log);
+				adjust_mag();
+			}
 		}
 		if(!a && !g && !m)
-			usleep(100);
+			usleep(1000);
 	}
 	return 0;
 }
@@ -79,6 +82,7 @@ static bool parse_options(int argc, char** argv) {
 	desc.add_options()
 			("help", "show help")
 			("ascii", "output in ascii")
+			("mag", "include magnetic")
 			;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -87,9 +91,10 @@ static bool parse_options(int argc, char** argv) {
 		std::cout << desc << "\n";
 		return false;
 	}
-	if(vm.count("ascii")) {
+	if(vm.count("ascii"))
 		ascii_output = true;
-	}
+	if(vm.count("mag"))
+		include_mag = true;
 	return true;
 }
 
@@ -101,8 +106,8 @@ static void init() {
 
 	a_log->sensor = S_ACCEL;
 	a_log->config.accel.scale = LSM9DS0::A_SCALE_2G;
-	a_log->config.accel.odr = LSM9DS0::A_ODR_200;
-	a_log->config.accel.abw = LSM9DS0::A_ABW_194;
+	a_log->config.accel.odr = LSM9DS0::A_ODR_100;
+	a_log->config.accel.abw = LSM9DS0::A_ABW_50;
 
 	g_log->sensor = S_GYRO;
 	g_log->config.gyro.scale = LSM9DS0::G_SCALE_245DPS;
@@ -110,7 +115,7 @@ static void init() {
 
 	m_log->sensor = S_MAG;
 	m_log->config.mag.scale = LSM9DS0::M_SCALE_2GS;
-	m_log->config.mag.odr = LSM9DS0::M_ODR_100;
+	m_log->config.mag.odr = LSM9DS0::M_ODR_125;
 
 	imu->begin(
 			g_log->config.gyro.scale,
