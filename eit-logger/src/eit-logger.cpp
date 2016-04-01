@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
 			adjust_mag();
 		}
 		if(!a && !g && !m)
-			usleep(100);
+			usleep(500);
 	}
 	return 0;
 }
@@ -113,33 +113,71 @@ static void init() {
 	imu->setAccelABW(a_log->config.accel.abw);
 }
 
+static void write_log_ascii(struct eit_log_t* log);
+static void write_log_binary(struct eit_log_t* log);
+
 static void write_log(struct eit_log_t* log) {
-	if(!ascii_output) {
-		std::cout.write((char*) log, sizeof(struct eit_log_t));
-	} else {
-		std::cout << "[" << log->sensor << ",";
-		switch(log->sensor) {
-		case S_ACCEL:
-			std::cout << "[" << log->config.accel.scale;
-			std::cout << "," << log->config.accel.odr;
-			std::cout << "," << log->config.accel.abw << "]";
-			break;
-		case S_GYRO:
-			std::cout << "[" << log->config.gyro.scale;
-			std::cout << "," << log->config.gyro.odr << "]";
-			break;
-		case S_MAG:
-			std::cout << "[" << log->config.mag.scale;
-			std::cout << "," << log->config.mag.odr << "]";
-			break;
-		}
-		std::cout << "," << log->timestamp_ns;
-		std::cout << "," << log->x;
-		std::cout << "," << log->y;
-		std::cout << "," << log->z;
-		std::cout << "," << log->overflow << "]\n";
-	}
+	if(ascii_output)
+		write_log_ascii(log);
+	else
+		write_log_binary(log);
 }
+
+static void write_log_ascii(struct eit_log_t* log) {
+	std::cout << "[" << log->sensor << ",";
+	switch(log->sensor) {
+	case S_ACCEL:
+		std::cout << "[" << log->config.accel.scale;
+		std::cout << "," << log->config.accel.odr;
+		std::cout << "," << log->config.accel.abw << "]";
+		break;
+	case S_GYRO:
+		std::cout << "[" << log->config.gyro.scale;
+		std::cout << "," << log->config.gyro.odr << "]";
+		break;
+	case S_MAG:
+		std::cout << "[" << log->config.mag.scale;
+		std::cout << "," << log->config.mag.odr << "]";
+		break;
+	}
+	std::cout << "," << log->timestamp_ns;
+	std::cout << "," << log->x;
+	std::cout << "," << log->y;
+	std::cout << "," << log->z;
+	std::cout << "," << log->overflow << "]\n";
+}
+
+#define B_SENSOR 0
+#define B_SCALE (B_SENSOR + sizeof(char))
+#define B_TS (B_SCALE + sizeof(char))
+#define B_X (B_TS + sizeof(int64_t))
+#define B_Y (B_X + sizeof(float))
+#define B_Z (B_Y + sizeof(float))
+#define B_OVR (B_Z + sizeof(float))
+#define B_LEN (B_OVR + sizeof(char))
+
+static void write_log_binary(struct eit_log_t* log) {
+	char cbuf[B_LEN];
+	*(cbuf + B_SENSOR) = log->sensor;
+	switch(log->sensor) {
+	case S_ACCEL:
+		*(cbuf + B_SCALE) = log->config.accel.scale;
+		break;
+	case S_GYRO:
+		*(cbuf + B_SCALE) = log->config.gyro.scale;
+		break;
+	case S_MAG:
+		*(cbuf + B_SCALE) = log->config.mag.scale;
+		break;
+	}
+	*((int64_t*)(cbuf + B_TS)) = log->timestamp_ns;
+	*((float*)(cbuf + B_X)) = log->x;
+	*((float*)(cbuf + B_Y)) = log->y;
+	*((float*)(cbuf + B_Z)) = log->z;
+	*(cbuf + B_OVR) = log->overflow;
+	std::cout.write(cbuf, sizeof(cbuf));
+}
+
 
 static bool read_accel() {
 	if(!imu->newXData())
