@@ -44,8 +44,8 @@ public class Calibrate {
 			elog = tmp;
 		}
 
-		ao.multiply(1./sa);
-		go.multiply(1./sg);
+		ao.multiply(-1./sa);
+		go.multiply(-1./sg);
 		
 		Calibration cal = new Calibration(ao, go, sa, sg, sn);
 		cal.write(System.out, args[0] + " (" + TimeUnit.SECONDS.convert(sn, TimeUnit.NANOSECONDS) + " seconds)");

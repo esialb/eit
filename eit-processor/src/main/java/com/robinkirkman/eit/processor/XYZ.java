@@ -15,8 +15,8 @@ public class XYZ {
 		this.z = z;
 	}
 
-	public XYZ(XYZ xyz) {
-		this(xyz.x, xyz.y, xyz.z);
+	public XYZ(XYZ o) {
+		this(o.x, o.y, o.z);
 	}
 	
 	public XYZ set(double ox, double oy, double oz) {
