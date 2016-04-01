@@ -18,6 +18,13 @@
 
 namespace po = boost::program_options;
 
+#define B_SENSOR 0
+#define B_TS (B_SENSOR + sizeof(char))
+#define B_X (B_TS + sizeof(int64_t))
+#define B_Y (B_X + sizeof(float))
+#define B_Z (B_Y + sizeof(float))
+#define B_LEN (B_Z + sizeof(float))
+
 static LSM9DS0 *imu;
 
 static bool ascii_output = false;
@@ -62,7 +69,7 @@ int main(int argc, char** argv) {
 			adjust_mag();
 		}
 		if(!a && !g && !m)
-			usleep(500);
+			usleep(100);
 	}
 	return 0;
 }
@@ -94,12 +101,12 @@ static void init() {
 
 	a_log->sensor = S_ACCEL;
 	a_log->config.accel.scale = LSM9DS0::A_SCALE_2G;
-	a_log->config.accel.odr = LSM9DS0::A_ODR_1600;
-	a_log->config.accel.abw = LSM9DS0::A_ABW_773;
+	a_log->config.accel.odr = LSM9DS0::A_ODR_200;
+	a_log->config.accel.abw = LSM9DS0::A_ABW_194;
 
 	g_log->sensor = S_GYRO;
 	g_log->config.gyro.scale = LSM9DS0::G_SCALE_245DPS;
-	g_log->config.gyro.odr = LSM9DS0::G_ODR_760_BW_100;
+	g_log->config.gyro.odr = LSM9DS0::G_ODR_190_BW_70;
 
 	m_log->sensor = S_MAG;
 	m_log->config.mag.scale = LSM9DS0::M_SCALE_2GS;
@@ -150,20 +157,31 @@ static void write_log_ascii(struct eit_log_t* log) {
 	std::cout << "," << log->overflow << "]\n";
 }
 
-#define B_SENSOR 0
-#define B_TS (B_SENSOR + sizeof(char))
-#define B_X (B_TS + sizeof(int64_t))
-#define B_Y (B_X + sizeof(float))
-#define B_Z (B_Y + sizeof(float))
-#define B_LEN (B_Z + sizeof(float))
-
 static void write_log_binary(struct eit_log_t* log) {
 	char cbuf[B_LEN];
+	union {
+		int64_t i;
+		char c[sizeof(int64_t)];
+	} i;
+	union {
+		float f;
+		char c[sizeof(float)];
+	} f;
+
 	*(cbuf + B_SENSOR) = log->sensor;
-	*((int64_t*)(cbuf + B_TS)) = log->timestamp_ns;
-	*((float*)(cbuf + B_X)) = log->x;
-	*((float*)(cbuf + B_Y)) = log->y;
-	*((float*)(cbuf + B_Z)) = log->z;
+
+	i.i = log->timestamp_ns;
+	memcpy(cbuf + B_TS, i.c, sizeof(int64_t));
+
+	f.f = log->x;
+	memcpy(cbuf + B_X, f.c, sizeof(float));
+
+	f.f = log->y;
+	memcpy(cbuf + B_Y, f.c, sizeof(float));
+
+	f.f = log->z;
+	memcpy(cbuf + B_Z, f.c, sizeof(float));
+
 	std::cout.write(cbuf, sizeof(cbuf));
 }
 
