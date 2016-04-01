@@ -9,16 +9,24 @@
 #include <iostream>
 #include <unistd.h>
 
+#include <boost/program_options.hpp>
+
 #include "eit-logger.hpp"
 
 #include "SFE_LSM9DS0.h"
 #include "timestamp.hpp"
 
+namespace po = boost::program_options;
+
 static LSM9DS0 *imu;
+
+static bool ascii_output = false;
 
 static struct eit_log_t *a_log;
 static struct eit_log_t *g_log;
 static struct eit_log_t *m_log;
+
+static bool parse_options(int argc, char** argv);
 
 static void init();
 
@@ -30,26 +38,49 @@ static void adjust_accel();
 static void adjust_gyro();
 static void adjust_mag();
 
-int main() {
+static void write_log(struct eit_log_t* log);
+
+int main(int argc, char** argv) {
+	if(!parse_options(argc, argv))
+		return 0;
 	init();
 	for(;;) {
 		bool a, g, m;
 		if((a = read_accel())) {
-			std::cout.write((char*) a_log, sizeof(struct eit_log_t));
+			write_log(a_log);
 			adjust_accel();
 		}
 		if((g = read_gyro())) {
-			std::cout.write((char*) g_log, sizeof(struct eit_log_t));
+			write_log(g_log);
 			adjust_gyro();
 		}
 		if((m = read_mag())) {
-			std::cout.write((char*) m_log, sizeof(struct eit_log_t));
+			write_log(m_log);
 			adjust_mag();
 		}
 		if(!a && !g && !m)
 			usleep(100);
 	}
 	return 0;
+}
+
+static bool parse_options(int argc, char** argv) {
+	po::options_description desc("Options");
+	desc.add_options()
+			("help", "show help")
+			("ascii", "output in ascii")
+			;
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::notify(vm);
+	if(vm.count("help")) {
+		std::cout << desc << "\n";
+		return false;
+	}
+	if(vm.count("ascii")) {
+		ascii_output = true;
+	}
+	return true;
 }
 
 static void init() {
@@ -80,6 +111,34 @@ static void init() {
 			m_log->config.mag.odr);
 
 	imu->setAccelABW(a_log->config.accel.abw);
+}
+
+static void write_log(struct eit_log_t* log) {
+	if(!ascii_output) {
+		std::cout.write((char*) log, sizeof(struct eit_log_t));
+	} else {
+		std::cout << "[" << log->sensor << ",";
+		switch(log->sensor) {
+		case S_ACCEL:
+			std::cout << "[" << log->config.accel.scale;
+			std::cout << "," << log->config.accel.odr;
+			std::cout << "," << log->config.accel.abw << "]";
+			break;
+		case S_GYRO:
+			std::cout << "[" << log->config.gyro.scale;
+			std::cout << "," << log->config.gyro.odr << "]";
+			break;
+		case S_MAG:
+			std::cout << "[" << log->config.mag.scale;
+			std::cout << "," << log->config.mag.odr << "]";
+			break;
+		}
+		std::cout << "," << log->timestamp_ns;
+		std::cout << "," << log->x;
+		std::cout << "," << log->y;
+		std::cout << "," << log->z;
+		std::cout << "," << log->overflow << "]\n";
+	}
 }
 
 static bool read_accel() {
