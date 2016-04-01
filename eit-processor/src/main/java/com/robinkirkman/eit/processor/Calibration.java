@@ -10,57 +10,57 @@ import java.util.List;
 import java.util.Properties;
 
 public class Calibration {
+	
+	
 	public static Calibration read(InputStream in) throws IOException {
 		Properties p = new Properties();
 		p.load(in);
-		double ag = Double.parseDouble(p.getProperty("a.gravity"));
-		long as = Long.parseLong(p.getProperty("a.samples"));
-		double gxo = Double.parseDouble(p.getProperty("g.x-offset"));
-		double gyo = Double.parseDouble(p.getProperty("g.y-offset"));
-		double gzo = Double.parseDouble(p.getProperty("g.z-offset"));
-		long gs = Long.parseLong(p.getProperty("g.samples"));
-		long nanos = Long.parseLong(p.getProperty("t.nanos"));
-		return new Calibration(ag, gxo, gyo, gzo, as, gs, nanos);
+		XYZ ao = new XYZ(dget(p, "a.ox"), dget(p, "a.oy"), dget(p, "a.oz"));
+		XYZ go = new XYZ(dget(p, "g.ox"), dget(p, "g.oy"), dget(p, "g.oz"));
+		long sa = lget(p, "s.a");
+		long sg = lget(p, "s.g");
+		long sn = lget(p, "s.n");
+		return new Calibration(ao, go, sa, sg, sn);
+	}
+
+	private static double dget(Properties p, String key) {
+		return Double.parseDouble(p.getProperty(key));
+	}
+	
+	private static long lget(Properties p, String key) {
+		return Long.parseLong(p.getProperty(key));
 	}
 	
 	/**
-	 * acceleration of gravity
+	 * accel offset
 	 */
-	public final double ag;
+	public XYZ ao;
+	
 	/**
-	 * gyro-x offset
+	 * gyro offset
 	 */
-	public final double gxo;
-	/**
-	 * gyro-y offset
-	 */
-	public final double gyo;
-	/**
-	 * gyro-z offset
-	 */
-	public final double gzo;
+	public XYZ go;
+	
 	/**
 	 * number of accel samples
 	 */
-	public final long as;
+	public final long sa;
 	/**
 	 * number of gyro samples
 	 */
-	public final long gs;
+	public final long sg;
 	
 	/**
 	 * duration of calibration (ns)
 	 */
-	public final long nanos;
+	public final long sn;
 	
-	public Calibration(double ag, double gxo, double gyo, double gzo, long as, long gs, long nanos) {
-		this.ag = ag;
-		this.gxo = gxo;
-		this.gyo = gyo;
-		this.gzo = gzo;
-		this.as = as;
-		this.gs = gs;
-		this.nanos = nanos;
+	public Calibration(XYZ ao, XYZ go, long sa, long sg, long sn) {
+		this.ao = ao;
+		this.go = go;
+		this.sa = sa;
+		this.sg = sg;
+		this.sn = sn;
 	}
 	
 	public void write(OutputStream out, String comment) throws IOException {
@@ -74,13 +74,17 @@ public class Calibration {
 				return Collections.enumeration(keys);
 			}
 		};
-		p.setProperty("a.gravity", "" + ag);
-		p.setProperty("a.samples", "" + as);
-		p.setProperty("g.x-offset", "" + gxo);
-		p.setProperty("g.y-offset", "" + gyo);
-		p.setProperty("g.z-offset", "" + gzo);
-		p.setProperty("g.samples", "" + gs);
-		p.setProperty("t.nanos", "" + nanos);
+		p.setProperty("ao.x", "" + ao.x);
+		p.setProperty("ao.y", "" + ao.y);
+		p.setProperty("ao.z", "" + ao.z);
+		
+		p.setProperty("go.x", "" + go.x);
+		p.setProperty("go.y", "" + go.y);
+		p.setProperty("go.z", "" + go.z);
+		
+		p.setProperty("s.a", "" + sa);
+		p.setProperty("s.g", "" + sg);
+		p.setProperty("s.n", "" + sn);
 		p.store(out, comment);
 	}
 }

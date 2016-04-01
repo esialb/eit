@@ -19,42 +19,36 @@ public class Calibrate {
 		MappedByteBuffer buf = fc.map(MapMode.READ_ONLY, 0, f.length());
 		buf.order(ByteOrder.LITTLE_ENDIAN);
 		
-		long as = 0;
-		long gs = 0;
-		double ag = 0;
-		double gxo = 0;
-		double gyo = 0;
-		double gzo = 0;
+		long sa = 0;
+		long sg = 0;
+		long sn = 0;
 		
-		long nanos = 0;
+		XYZ ao = new XYZ();
+		XYZ go = new XYZ();
 		
 		EitLog next = new EitLog();
 		EitLog elog = new EitLog();
 		
 		while(EitLog.canRead(buf)) {
 			next.read(buf);
-			nanos = Math.max(nanos, elog.nanos);
+			sn = elog.nanos;
 			if(elog.sensor == Sensor.ACCEL) {
-				ag += Math.sqrt(elog.x * elog.x + elog.y * elog.y + elog.z * elog.z);
-				as++;
+				ao.offset(elog.x, elog.y, elog.z);
+				sa++;
 			} else if(elog.sensor == Sensor.GYRO) {
-				gxo += elog.x;
-				gyo += elog.y;
-				gzo += elog.z;
-				gs++;
+				go.offset(elog.x, elog.y, elog.z);
+				sg++;
 			}
 			EitLog tmp = next;
 			next = elog;
 			elog = tmp;
 		}
+
+		ao.multiply(1./sa);
+		go.multiply(1./sg);
 		
-		ag /= as;
-		gxo /= gs;
-		gyo /= gs;
-		gzo /= gs;
-		
-		Calibration cal = new Calibration(ag, gxo, gyo, gzo, as, gs, nanos);
-		cal.write(System.out, args[0] + " (" + TimeUnit.SECONDS.convert(nanos, TimeUnit.NANOSECONDS) + " seconds)");
+		Calibration cal = new Calibration(ao, go, sa, sg, sn);
+		cal.write(System.out, args[0] + " (" + TimeUnit.SECONDS.convert(sn, TimeUnit.NANOSECONDS) + " seconds)");
 	}
 
 }
